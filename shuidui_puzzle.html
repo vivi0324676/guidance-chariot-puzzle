@@ -1,0 +1,1410 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>天工开物 - 水碓 3D 拼装</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Microsoft YaHei', sans-serif;
+            background: #ddddaa;
+            min-height: 100vh;
+            overflow: hidden;
+        }
+
+        #canvas-container {
+            width: 100vw;
+            height: 100vh;
+            position: fixed;
+            top: 0;
+            left: 0;
+        }
+
+        .ui-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            z-index: 100;
+        }
+
+        header {
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            padding: 15px 30px;
+            background: linear-gradient(180deg, rgba(92,58,30,0.95) 0%, rgba(92,58,30,0.8) 100%);
+            border-bottom: 2px solid #8b4513;
+            pointer-events: auto;
+        }
+
+        header h1 {
+            color: #000;
+            font-size: 1.6em;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.5);
+        }
+
+        .parts-panel {
+            position: absolute;
+            left: 15px;
+            top: 90px;
+            width: 200px;
+            background: rgba(249,241,227,0.95);
+            border: 3px solid #8b4513;
+            border-radius: 12px;
+            padding: 12px;
+            pointer-events: auto;
+            max-height: calc(100vh - 120px);
+            overflow-y: auto;
+        }
+
+        .parts-panel h2 {
+            color: #000;
+            font-size: 1.1em;
+            text-align: center;
+            margin-bottom: 10px;
+            border-bottom: 2px solid #8b4513;
+            padding-bottom: 8px;
+        }
+
+        .part-item {
+            background: linear-gradient(145deg, #fff8f0, #f0e0c8);
+            border: 2px solid #a0522d;
+            border-radius: 8px;
+            padding: 10px;
+            margin-bottom: 10px;
+            cursor: pointer;
+            transition: all 0.3s;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .part-item:hover {
+            transform: scale(1.05);
+            border-color: #cd853f;
+            box-shadow: 0 4px 12px rgba(139,69,19,0.4);
+        }
+
+        .part-item.selected {
+            border-color: #228b22;
+            box-shadow: 0 0 15px rgba(34,139,34,0.6);
+        }
+
+        .part-item.part-placed {
+            opacity: 0.4;
+            cursor: not-allowed;
+            filter: grayscale(80%);
+        }
+
+        .part-preview {
+            width: 40px;
+            height: 40px;
+            background: linear-gradient(145deg, #e8d5b5, #d4c4a8);
+            border-radius: 6px;
+            border: 2px solid #8b4513;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.5em;
+            flex-shrink: 0;
+        }
+
+        .part-info h3 {
+            color: #5c3a1e;
+            font-size: 0.9em;
+            margin-bottom: 2px;
+        }
+
+        .part-info p {
+            color: #8b4513;
+            font-size: 0.7em;
+        }
+
+        .controls-panel {
+            position: absolute;
+            right: 15px;
+            top: 90px;
+            width: 180px;
+            background: rgba(249,241,227,0.95);
+            border: 3px solid #8b4513;
+            border-radius: 12px;
+            padding: 12px;
+            pointer-events: auto;
+        }
+
+        .controls-panel h3 {
+            color: #000;
+            font-size: 1em;
+            text-align: center;
+            margin-bottom: 10px;
+            border-bottom: 2px solid #8b4513;
+            padding-bottom: 6px;
+        }
+
+        .btn {
+            width: 100%;
+            background: linear-gradient(145deg, #8b4513, #a0522d);
+            color: white;
+            border: none;
+            padding: 8px;
+            font-size: 0.9em;
+            border-radius: 6px;
+            cursor: pointer;
+            margin-bottom: 6px;
+            transition: all 0.3s;
+        }
+
+        .btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(139,69,19,0.4);
+        }
+
+        .btn-reset {
+            background: linear-gradient(145deg, #5c5c5c, #7a7a7a);
+        }
+
+        .progress-panel {
+            position: absolute;
+            bottom: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 380px;
+            background: rgba(249,241,227,0.95);
+            border: 3px solid #8b4513;
+            border-radius: 12px;
+            padding: 12px;
+            pointer-events: auto;
+        }
+
+        .progress-bar {
+            width: 100%;
+            height: 25px;
+            background: #e8d5b5;
+            border-radius: 12px;
+            overflow: hidden;
+            border: 2px solid #a0522d;
+        }
+
+        .progress-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #228b22, #32cd32);
+            width: 0%;
+            transition: width 0.5s;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-weight: bold;
+            font-size: 0.9em;
+        }
+
+        .status-text {
+            text-align: center;
+            margin-top: 8px;
+            color: #5c3a1e;
+            font-size: 0.9em;
+        }
+
+        .help-panel {
+            position: absolute;
+            right: 15px;
+            bottom: 20px;
+            width: 220px;
+            background: rgba(249,241,227,0.95);
+            border: 3px solid #8b4513;
+            border-radius: 12px;
+            padding: 12px;
+            pointer-events: auto;
+        }
+
+        .help-panel h3 {
+            color: #5c3a1e;
+            font-size: 0.95em;
+            margin-bottom: 8px;
+            border-bottom: 2px solid #8b4513;
+            padding-bottom: 6px;
+        }
+
+        .help-panel ul {
+            color: #8b4513;
+            font-size: 0.8em;
+            line-height: 1.6;
+            padding-left: 18px;
+        }
+
+        .completion-modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0,0,0,0.7);
+            z-index: 1000;
+            align-items: center;
+            justify-content: center;
+            pointer-events: auto;
+        }
+
+        .completion-modal.show {
+            display: flex;
+        }
+
+        .modal-content {
+            background: linear-gradient(145deg, #f9f1e3, #e8d5b5);
+            border: 4px solid #8b4513;
+            border-radius: 20px;
+            padding: 35px;
+            text-align: center;
+            max-width: 480px;
+        }
+
+        .modal-content h2 {
+            color: #228b22;
+            font-size: 1.8em;
+            margin-bottom: 15px;
+        }
+
+        .modal-content p {
+            color: #5c3a1e;
+            font-size: 1em;
+            line-height: 1.6;
+            margin-bottom: 20px;
+        }
+
+        .modal-content .icon {
+            font-size: 4em;
+            margin-bottom: 15px;
+        }
+
+        .btn-group {
+            display: flex;
+            gap: 10px;
+            justify-content: center;
+        }
+
+        #loading {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(26,26,46,0.95);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            z-index: 9999;
+            color: #f5e6d3;
+        }
+
+        #loading h2 {
+            margin-bottom: 20px;
+            font-size: 1.8em;
+        }
+
+        .spinner {
+            width: 50px;
+            height: 50px;
+            border: 5px solid rgba(139,69,19,0.3);
+            border-top-color: #8b4513;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        .place-hint {
+            position: absolute;
+            background: rgba(34,139,34,0.9);
+            color: white;
+            padding: 8px 15px;
+            border-radius: 20px;
+            font-size: 0.85em;
+            pointer-events: none;
+            animation: pulse 1s ease-in-out infinite;
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; transform: scale(1); }
+            50% { opacity: 0.7; transform: scale(1.05); }
+        }
+    </style>
+</head>
+<body>
+    <div id="loading">
+        <h2>🏮 正在加载 3D 场景...</h2>
+        <div class="spinner"></div>
+    </div>
+
+    <div id="canvas-container"></div>
+    
+    <div class="ui-overlay">
+        <header>
+            <h1>🏮 天工开物 - 水碓 3D 拼装</h1>
+        </header>
+
+        <div class="parts-panel">
+            <h2>📦 部件列表</h2>
+            <div id="partsList">
+                <div class="part-item" data-part="wheel" draggable="true">
+                    <div class="part-preview">⚙️</div>
+                    <div class="part-info">
+                        <h3>水轮</h3>
+                        <p>水力驱动</p>
+                    </div>
+                </div>
+                <div class="part-item" data-part="lever" draggable="true">
+                    <div class="part-preview">🎋</div>
+                    <div class="part-info">
+                        <h3>碓杆</h3>
+                        <p>杠杆部件</p>
+                    </div>
+                </div>
+                <div class="part-item" data-part="trough" draggable="true">
+                    <div class="part-preview">🌊</div>
+                    <div class="part-info">
+                        <h3>水槽</h3>
+                        <p>引水通道</p>
+                    </div>
+                </div>
+                    <div class="part-preview">🌊</div>
+                    <div class="part-info">
+                        <h3>水槽</h3>
+                        <p>引水通道</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="controls-panel">
+            <h3>🎮 控制</h3>
+            <button class="btn" id="placeBtn">放置部件 (空格)</button>
+            <button class="btn" id="resetCamera">重置视角</button>
+            <button class="btn btn-reset" id="resetGame">重新开始</button>
+        </div>
+
+        <div class="progress-panel">
+            <div class="progress-bar">
+                <div class="progress-fill" id="progressFill">0%</div>
+            </div>
+            <p class="status-text" id="statusText">请选择一个部件开始拼装</p>
+        </div>
+
+        <div class="help-panel">
+            <h3>📖 操作说明</h3>
+            <ul>
+                <li>从部件列表拖拽零件到场景中</li>
+                <li>左键拖动零件移动位置</li>
+                <li>右键拖动旋转视角</li>
+                <li>滚轮缩放视图</li>
+                <li>空格键放置部件到目标位置</li>
+            </ul>
+        </div>
+    </div>
+
+    <div class="completion-modal" id="completionModal">
+        <div class="modal-content">
+            <div class="icon">🎉</div>
+            <h2>拼装完成！</h2>
+            <p>恭喜您成功组装了水碓！<br>
+            这个巧妙的古代机械利用水力驱动，<br>
+            可自动舂米，大大提高效率。</p>
+            <div class="btn-group">
+                <button class="btn" onclick="closeModal()">继续欣赏</button>
+                <button class="btn btn-reset" onclick="resetGame()">重新拼装</button>
+            </div>
+        </div>
+    </div>
+
+    <script type="module">
+        import * as THREE from './libs/three.module.min.js';
+        import { OrbitControls } from './libs/OrbitControls.js';
+
+        // 游戏状态
+        const gameState = {
+            placedParts: new Set(),
+            totalParts: 3,
+            selectedPart: null
+        };
+
+        // Three.js 变量
+        let scene, camera, renderer, controls;
+        let partMeshes = {};
+        let ghostMeshes = {};
+        let raycaster, mouse;
+        let selectedMesh = null;
+        let isDragging = false;
+        let dragPlane;
+
+        // 部件配置 - 精确校准位置和旋转
+        const partsConfig = {
+            wheel: {
+                targetPos: new THREE.Vector3(0, 1.3+0.5-0.05, 0),
+                targetRot: new THREE.Vector3(0, 0, 0),
+                color: 0x8B4513,
+                startPos: new THREE.Vector3(-6, 4+0.5-0.05, 0)
+            },
+            lever: {
+                targetPos: new THREE.Vector3(-1.1-0.3, 0.80, -1.9),
+                targetRot: new THREE.Vector3(0, 0, 0),
+                color: 0xD2691E,
+                startPos: new THREE.Vector3(-6-0.3, 1.5, 0)
+            },
+            trough: {
+                targetPos: new THREE.Vector3(1.2, 2.45, 0),
+                targetRot: new THREE.Vector3(0, 0, -0.2),
+                color: 0x4682B4,
+                startPos: new THREE.Vector3(-3, 4, 0)
+            }
+        };
+
+        // 创建碓杆模型（带支撑架和横杆 - 改进版：横杆可绕支点独立旋转）
+        function createLever() {
+            const group = new THREE.Group();
+            const woodMat = new THREE.MeshStandardMaterial({ color: 0xD2691E, roughness: 0.5 });
+            const supportMat = new THREE.MeshStandardMaterial({ color: 0x8B4513, roughness: 0.6 });
+
+            // === 固定支撑部分 ===
+            const supportGroup = new THREE.Group();
+
+            // 支点（支撑横杆的柱子）
+            const pivotPost = new THREE.Mesh(
+                new THREE.CylinderGeometry(0.1, 0.1, 0.85, 16),
+                supportMat
+            );
+            pivotPost.position.set(0.3, -0.30, 0);
+            pivotPost.castShadow = true;
+            supportGroup.add(pivotPost);
+
+            // 支点底座
+            const pivotBase = new THREE.Mesh(
+                new THREE.CylinderGeometry(0.18, 0.18, 0.1, 16),
+                supportMat
+            );
+            pivotBase.position.set(0.3, -0.72, 0);
+            pivotBase.castShadow = true;
+            supportGroup.add(pivotBase);
+
+            // 支撑架（A 字形支架）
+            const leftLeg = new THREE.Mesh(
+                new THREE.BoxGeometry(0.1, 0.7, 0.1),
+                supportMat
+            );
+            leftLeg.position.set(-0.5, -0.75, 0);
+            leftLeg.rotation.z = 0;
+            leftLeg.castShadow = true;
+            supportGroup.add(leftLeg);
+
+            const rightLeg = new THREE.Mesh(
+                new THREE.BoxGeometry(0.1, 0.7, 0.1),
+                supportMat
+            );
+            rightLeg.position.set(1.0, -0.75, 0);
+            rightLeg.rotation.z = 0;
+            rightLeg.castShadow = true;
+            supportGroup.add(rightLeg);
+
+            const crossBar = new THREE.Mesh(
+                new THREE.BoxGeometry(1.7, 0.06, 0.06),
+                supportMat
+            );
+            crossBar.position.set(0.25, -0.4, 0);
+            crossBar.castShadow = true;
+            supportGroup.add(crossBar);
+
+            group.add(supportGroup);
+
+            // === 旋转部分（横杆）===
+            // 旋转中心在支点顶部
+            const crossLeverPivot = new THREE.Group();
+            crossLeverPivot.position.set(0.3, -0.075, 0); // 支点在横杆底部中心
+            crossLeverPivot.userData = { isCrossLeverPivot: true }; // 标记用于动画
+            group.userData.crossLeverPivot = crossLeverPivot; // 储存引用，避免每帧查找
+
+            // 横杆（跷跷板结构，支点在中间）
+            const crossLever = new THREE.Mesh(
+                new THREE.BoxGeometry(3, 0.18, 0.22),
+                woodMat
+            );
+            crossLever.position.x = -0.5;
+            crossLever.position.y = 0.09; 
+            crossLever.castShadow = true;
+            crossLeverPivot.add(crossLever);
+
+            // 横杆一端的台柱，上大下小，面朝下方
+            const pedestal = new THREE.Mesh(
+                new THREE.CylinderGeometry(0.22, 0.12, 0.35, 16),
+                supportMat
+            );
+            pedestal.position.set(-2, -0.075, 0);
+            pedestal.castShadow = true;
+            crossLeverPivot.add(pedestal);
+
+            group.add(crossLeverPivot);
+
+            return group;
+        }
+
+        // 创建水轮模型 - 立轮式（主轴沿 Z 轴负方向延伸，加粗加长）
+        function createWheel() {
+            const group = new THREE.Group();
+            const woodMat = new THREE.MeshStandardMaterial({ color: 0x8B4513, roughness: 0.6 });
+            const metalMat = new THREE.MeshStandardMaterial({ color: 0x333333, metalness: 0.6, roughness: 0.4 });
+            const markerMat = new THREE.MeshStandardMaterial({ color: 0xFF0000, emissive: 0x330000 });
+
+            // 轮辐（从中心向边缘辐射，形成轮子骨架）
+            const spokeCount = 6;
+            for (let i = 0; i < spokeCount; i++) {
+                const angle = (i / spokeCount) * Math.PI * 2;
+                const spoke = new THREE.Mesh(
+                    new THREE.BoxGeometry(0.8, 0.06, 0.08),
+                    woodMat
+                );
+                spoke.position.set(
+                    Math.cos(angle) * 0.4,
+                    Math.sin(angle) * 0.4,
+                    0
+                );
+                spoke.rotation.z = angle;
+                spoke.castShadow = true;
+                group.add(spoke);
+            }
+
+            // 水斗叶片（沿轮盘边缘分布，接受水流冲击）
+            const bladeCount = 10;
+            for (let i = 0; i < bladeCount; i++) {
+                const angle = (i / bladeCount) * Math.PI * 2;
+                const blade = new THREE.Mesh(
+                    new THREE.BoxGeometry(0.12, 0.4, 0.5),
+                    woodMat
+                );
+                const radius = 0.85;
+                blade.position.set(
+                    Math.cos(angle) * radius,
+                    Math.sin(angle) * radius,
+                    0
+                );
+                blade.rotation.z = angle;
+                blade.castShadow = true;
+                group.add(blade);
+            }
+
+            // 主轴（从轮盘圆心沿 Z 轴负方向延伸，加粗加长）
+            const mainAxle = new THREE.Mesh(
+                new THREE.CylinderGeometry(0.13, 0.13, 2.4, 12),
+                metalMat
+            );
+            mainAxle.rotation.x = Math.PI / 2; // 沿 Z 轴方向
+            mainAxle.position.set(0, 0, -0.7); // 从圆心向后延伸
+            mainAxle.castShadow = true;
+            group.add(mainAxle);
+
+            // 凸轮木板（与主轴末端连接成一体，偏心设计，用于直接压下横杆）
+            const camPlate = new THREE.Mesh(
+                new THREE.BoxGeometry(0.65, 0.18, 0.5),
+                woodMat
+            );
+            // 凸轮木板直接与主轴末端连接，偏离中心（偏心）
+            camPlate.position.set(0.35, 0, -1.95);
+            camPlate.userData = { isCamPlate: true }; // 标记用于动画
+            group.userData.camPlate = camPlate; // 储存引用，避免每帧查找
+            camPlate.castShadow = true;
+            group.add(camPlate);
+
+            // 添加红色标记点，便于观察旋转
+            const marker = new THREE.Mesh(
+                new THREE.SphereGeometry(0.15, 8, 8),
+                markerMat
+            );
+            marker.position.set(0.6, 0, 0); // 在轮子边缘添加红色标记
+            marker.castShadow = true;
+            group.add(marker);
+
+            return group;
+        }
+
+        // 创建水槽模型
+        function createTrough() {
+            const group = new THREE.Group();
+            const mat = new THREE.MeshStandardMaterial({ color: 0x4682B4, roughness: 0.3, metalness: 0.3 });
+            
+            // 底部
+            const bottom = new THREE.Mesh(
+                new THREE.BoxGeometry(1.8, 0.15, 0.6),
+                mat
+            );
+            bottom.position.y = -0.15;
+            bottom.castShadow = true;
+            group.add(bottom);
+            
+            // 左侧板
+            const leftSide = new THREE.Mesh(
+                new THREE.BoxGeometry(1.8, 0.3, 0.1),
+                mat
+            );
+            leftSide.position.set(0, 0, -0.25);
+            leftSide.castShadow = true;
+            group.add(leftSide);
+            
+            // 右侧板
+            const rightSide = new THREE.Mesh(
+                new THREE.BoxGeometry(1.8, 0.3, 0.1),
+                mat
+            );
+            rightSide.position.set(0, 0, 0.25);
+            rightSide.castShadow = true;
+            group.add(rightSide);
+            
+            return group;
+        }
+
+        // 创建部件
+        function createPart(type) {
+            let mesh;
+            switch(type) {
+                case 'wheel': mesh = createWheel(); break;
+                case 'lever': mesh = createLever(); break;
+                case 'trough': mesh = createTrough(); break;
+            }
+
+            if (mesh) {
+                mesh.userData = {
+                    partType: type,
+                    isPlaced: false
+                };
+            }
+            return mesh;
+        }
+
+        // 创建幽灵模型
+        function createGhost(type, position, rotation) {
+            const partMesh = createPart(type);
+            if (!partMesh) return null;
+
+            const ghostGroup = partMesh.clone(true);
+
+            ghostGroup.traverse((child) => {
+                if (child.isMesh) {
+                    child.material = new THREE.MeshBasicMaterial({
+                        color: partsConfig[type].color,
+                        transparent: true,
+                        opacity: 0.25,
+                        depthWrite: false
+                    });
+                    child.renderOrder = 1;
+
+                    const edges = new THREE.EdgesGeometry(child.geometry);
+                    const lineMat = new THREE.LineBasicMaterial({
+                        color: partsConfig[type].color,
+                        transparent: true,
+                        opacity: 0.8
+                    });
+                    const lineSegments = new THREE.LineSegments(edges, lineMat);
+                    lineSegments.renderOrder = 2;
+                    child.add(lineSegments);
+                }
+            });
+
+            ghostGroup.position.copy(position);
+            const targetEuler = new THREE.Euler(rotation.x, rotation.y, rotation.z, 'XYZ');
+            ghostGroup.rotation.copy(targetEuler);
+            ghostGroup.userData = { partType: type, isGhost: true };
+
+            return ghostGroup;
+        }    
+        // 初始化场景
+        function initScene() {
+            const container = document.getElementById('canvas-container');
+            
+            // 场景
+            scene = new THREE.Scene();
+            scene.background = new THREE.Color(0xd4c4a8);
+            scene.fog = new THREE.Fog(0xd4c4a8, 15, 40);
+
+            // 相机
+            camera = new THREE.PerspectiveCamera(
+                60,
+                window.innerWidth / window.innerHeight,
+                0.1,
+                1000
+            );
+            camera.position.set(8, 6, 8); // 调整相机位置，让所有部件都在视野内
+
+            // 渲染器
+            renderer = new THREE.WebGLRenderer({ antialias: true });
+            renderer.setSize(window.innerWidth, window.innerHeight);
+            renderer.shadowMap.enabled = true;
+            renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+            renderer.setPixelRatio(window.devicePixelRatio);
+            container.appendChild(renderer.domElement);
+
+            // 控制器
+            controls = new OrbitControls(camera, renderer.domElement);
+            controls.enableDamping = true;
+            controls.dampingFactor = 0.08;
+            controls.minDistance = 8; // 增大最小距离，避免放得太大
+            controls.maxDistance = 12; // 减小最大距离，避免缩太小
+            controls.target.set(-1, 1, -1); // 看向场景中心，能同时看到水轮和碓杆碓头
+            controls.autoRotate = false; // 初始关闭自动旋转
+            controls.autoRotateSpeed = 2.0;
+
+            // 光源
+            const ambientLight = new THREE.AmbientLight(0xffffff, 0.6);
+            scene.add(ambientLight);
+
+            const dirLight = new THREE.DirectionalLight(0xffffff, 1);
+            dirLight.position.set(10, 15, 10);
+            dirLight.castShadow = true;
+            dirLight.shadow.mapSize.width = 2048;
+            dirLight.shadow.mapSize.height = 2048;
+            dirLight.shadow.camera.near = 0.5;
+            dirLight.shadow.camera.far = 50;
+            dirLight.shadow.camera.left = -15;
+            dirLight.shadow.camera.right = 15;
+            dirLight.shadow.camera.top = 15;
+            dirLight.shadow.camera.bottom = -15;
+            scene.add(dirLight);
+
+            const pointLight = new THREE.PointLight(0xffa500, 0.4);
+            pointLight.position.set(-8, 5, -8);
+            scene.add(pointLight);
+
+            // 地面
+            const groundGeo = new THREE.PlaneGeometry(20, 20);
+            const groundMat = new THREE.MeshStandardMaterial({
+                color: 0xC8B880,
+                roughness: 0.9
+            });
+            const ground = new THREE.Mesh(groundGeo, groundMat);
+            ground.rotation.x = -Math.PI / 2;
+            ground.position.y = -0.3;
+            ground.receiveShadow = true;
+            scene.add(ground);
+
+            // 调试用：中心红色立方体
+            const debugCube = new THREE.Mesh(
+                new THREE.BoxGeometry(0.6, 0.6, 0.6),
+                new THREE.MeshStandardMaterial({ color: 0xff0000, emissive: 0x440000 })
+            );
+            debugCube.position.set(0, 0.3, 0);
+            debugCube.visible = false; // 默认隐藏，调试时可见
+            scene.add(debugCube);
+
+            console.log('ThreeJS scene initialized. camera position', camera.position, 'target', controls.target);
+            console.log('Ground and debug cube added, child count', scene.children.length);
+
+            // 网格
+            const gridHelper = new THREE.GridHelper(20, 1, 0x444444, 0x333333);
+            gridHelper.position.y = -0.29;
+            scene.add(gridHelper);
+
+            // 坐标轴辅助（调试用）
+            const axesHelper = new THREE.AxesHelper(3);
+            axesHelper.visible = false; // 默认隐藏，调试时可见
+            scene.add(axesHelper);
+
+            // 射线
+            raycaster = new THREE.Raycaster();
+            raycaster.params.Line.threshold = 0.5;
+            raycaster.params.Mesh.threshold = 0.5;
+            mouse = new THREE.Vector2();
+            dragPlane = new THREE.Plane(new THREE.Vector3(0, 0, 1), 0);
+
+            // 创建水流粒子系统（用于展示水流冲击水轮的效果）
+            const waterParticles = [];
+            const waterParticleCount = 100;
+            const waterGeometry = new THREE.SphereGeometry(0.04, 4, 4);
+            const waterMaterial = new THREE.MeshBasicMaterial({
+                color: 0x4fc3f7,
+                transparent: true,
+                opacity: 0.7
+            });
+
+            for (let i = 0; i < waterParticleCount; i++) {
+                const particle = new THREE.Mesh(waterGeometry, waterMaterial);
+                // 初始位置在水槽出口处（水流冲击轮盘上部）
+                particle.position.set(
+                    1.0 + Math.random() * 0.2,
+                    2.25 + Math.random() * 0.2,
+                    (Math.random() - 0.5) * 0.3
+                );
+                particle.userData = {
+                    speed: 0.03 + Math.random() * 0.02,
+                    offset: Math.random() * Math.PI * 2
+                };
+                scene.add(particle);
+                waterParticles.push(particle);
+            }
+
+            // 将水流粒子存储到全局变量以便动画使用
+            scene.userData.waterParticles = waterParticles;
+
+            // 创建幽灵模型（目标位置）
+            Object.keys(partsConfig).forEach(key => {
+                const config = partsConfig[key];
+                const ghost = createGhost(key, config.targetPos, config.targetRot);
+                if (ghost) {
+                    ghost.visible = true;
+                    scene.add(ghost);
+                    ghostMeshes[key] = ghost;
+                }
+            });
+
+            // 创建可放置部件（初始隐藏在场景外）
+            Object.keys(partsConfig).forEach(key => {
+                const config = partsConfig[key];
+                const mesh = createPart(key);
+                if (mesh) {
+                    // 初始位置隐藏在场景侧面，等待用户从部件列表拖出
+                    mesh.position.set(-8, 2, 5);
+                    mesh.visible = false; // 初始隐藏，拖拽时显示
+                    scene.add(mesh);
+                    partMeshes[key] = mesh;
+                }
+            });
+
+            // 事件
+            window.addEventListener('resize', onWindowResize);
+            renderer.domElement.addEventListener('mousedown', onMouseDown);
+            renderer.domElement.addEventListener('mousemove', onMouseMove);
+            renderer.domElement.addEventListener('mouseup', onMouseUp);
+
+            // 隐藏加载界面
+            document.getElementById('loading').style.display = 'none';
+
+            // 开始渲染
+            animate();
+        }
+
+        function onWindowResize() {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        }
+
+        function onMouseDown(event) {
+            if (event.button !== 0) return;
+
+            mouse.x = ((event.clientX - renderer.domElement.offsetLeft) / renderer.domElement.clientWidth) * 2 - 1;
+            mouse.y = -((event.clientY - renderer.domElement.offsetTop) / renderer.domElement.clientHeight) * 2 + 1;
+
+            raycaster.setFromCamera(mouse, camera);
+
+            // 检测所有未放置的模型
+            const meshes = Object.values(partMeshes).filter(m => !m.userData.isPlaced);
+            const intersects = raycaster.intersectObjects(meshes, true);
+
+            if (intersects.length > 0) {
+                let obj = intersects[0].object;
+                while (obj.parent && obj.parent !== scene) {
+                    obj = obj.parent;
+                }
+
+                const partType = obj.userData.partType;
+                if (partType && !obj.userData.isPlaced) {
+                    selectPart(partType, obj);
+                    isDragging = true;
+                    controls.enabled = false;
+
+                    // 拖拽时重置旋转以便操作
+                    obj.userData.draggingRot = obj.rotation.clone();
+                    obj.rotation.set(0, 0, 0);
+                }
+            }
+        }
+
+        function onMouseMove(event) {
+            if (!isDragging || !selectedMesh) return;
+
+            mouse.x = ((event.clientX - renderer.domElement.offsetLeft) / renderer.domElement.clientWidth) * 2 - 1;
+            mouse.y = -((event.clientY - renderer.domElement.offsetTop) / renderer.domElement.clientHeight) * 2 + 1;
+
+            raycaster.setFromCamera(mouse, camera);
+
+            // 使用世界坐标系的拖拽平面，让拖拽更自然
+            // 根据相机角度动态选择平面方向
+            const camDir = camera.position.clone().sub(controls.target).normalize();
+            
+            // 如果相机从上方看，使用水平平面；如果从侧面看，使用垂直平面
+            if (Math.abs(camDir.y) > 0.5) {
+                // 从上方看 - 水平平面
+                dragPlane.setFromNormalAndCoplanarPoint(new THREE.Vector3(0, 1, 0), selectedMesh.position);
+            } else {
+                // 从侧面看 - 垂直平面（面向相机）
+                dragPlane.setFromNormalAndCoplanarPoint(camDir, selectedMesh.position);
+            }
+
+            const target = new THREE.Vector3();
+            if (raycaster.ray.intersectPlane(dragPlane, target)) {
+                // 限制拖拽范围，防止部件跑太远
+                target.x = Math.max(-6, Math.min(6, target.x));
+                target.y = Math.max(-2, Math.min(5, target.y));
+                target.z = Math.max(-4, Math.min(4, target.z));
+                selectedMesh.position.copy(target);
+            }
+        }
+
+        function onMouseUp() {
+            if (isDragging && selectedMesh) {
+                const partType = selectedMesh.userData.partType;
+                tryPlacePart(partType);
+            }
+            isDragging = false;
+            controls.enabled = true;
+        }
+
+        function selectPart(partType, mesh) {
+            if (selectedMesh && selectedMesh !== mesh) {
+                selectedMesh.traverse(child => {
+                    if (child.isMesh) {
+                        child.material.emissive?.setHex(0x000000);
+                    }
+                });
+            }
+
+            document.querySelectorAll('.part-item').forEach(item => {
+                item.classList.remove('selected');
+            });
+
+            selectedMesh = mesh;
+            gameState.selectedPart = partType;
+            
+            // 确保部件可见
+            mesh.visible = true;
+
+            selectedMesh.traverse(child => {
+                if (child.isMesh) {
+                    child.material.emissive?.setHex(0x333333);
+                }
+            });
+
+            document.querySelector(`.part-item[data-part="${partType}"]`)?.classList.add('selected');
+            document.getElementById('statusText').textContent = `已选择：${getPartName(partType)}，拖动到绿色幽灵位置后松开（靠近会自动吸附）`;
+        }
+
+        function getPartName(type) {
+            const names = {
+                wheel: '水轮', lever: '碓杆', trough: '水槽'
+            };
+            return names[type] || type;
+        }
+
+        function tryPlacePart(partType) {
+            const mesh = partMeshes[partType];
+            const config = partsConfig[partType];
+
+            if (!mesh || mesh.userData.isPlaced) return false;
+
+            const distance = mesh.position.distanceTo(config.targetPos);
+            const rotationDistance = Math.abs(mesh.rotation.x - config.targetRot.x)
+                + Math.abs(mesh.rotation.y - config.targetRot.y)
+                + Math.abs(mesh.rotation.z - config.targetRot.z);
+
+            // 允许一定的误差，防止最后一块部件卡死
+            if (distance < 0.8 && rotationDistance < 2.5) {
+                // 精确放置到目标位置和旋转
+                mesh.position.copy(config.targetPos);
+                mesh.rotation.set(config.targetRot.x, config.targetRot.y, config.targetRot.z, config.targetRot.order || 'XYZ');
+                mesh.userData.isPlaced = true;
+                mesh.visible = true; // 确保可见
+
+                // 更新 UI
+                const partItem = document.querySelector(`.part-item[data-part="${partType}"]`);
+                if (partItem) {
+                    partItem.classList.add('part-placed');
+                }
+
+                // 隐藏幽灵模型
+                if (ghostMeshes[partType]) {
+                    ghostMeshes[partType].visible = false;
+                }
+
+                gameState.placedParts.add(partType);
+                updateProgress();
+
+                // 仅在成功放置后清除选中状态，避免放置失败后卡死
+                selectedMesh = null;
+                gameState.selectedPart = null;
+
+                // 播放放置动画效果
+                playPlaceEffect(mesh);
+
+                return true;
+            } else {
+                // 距离太远，提示用户并保留当前选中状态
+                document.getElementById('statusText').textContent = '部件距离目标位置太远，请拖近一点再放置（距离：' + distance.toFixed(1) + '）';
+            }
+
+            return false;
+        }
+
+        // 放置效果动画
+        function playPlaceEffect(mesh) {
+            let scale = 1;
+            let growing = true;
+            const animateEffect = () => {
+                if (growing) {
+                    scale += 0.1;
+                    if (scale >= 1.2) growing = false;
+                } else {
+                    scale -= 0.1;
+                    if (scale <= 1) {
+                        mesh.scale.setScalar(1);
+                        // 恢复后添加发光效果
+                        mesh.traverse(child => {
+                            if (child.isMesh) {
+                                child.material.emissive?.setHex(0x000000);
+                            }
+                        });
+                        return;
+                    }
+                }
+                mesh.scale.setScalar(scale);
+                requestAnimationFrame(animateEffect);
+            };
+            
+            // 添加发光效果
+            mesh.traverse(child => {
+                if (child.isMesh) {
+                    child.material.emissive?.setHex(0x333333);
+                }
+            });
+            
+            animateEffect();
+        }
+
+        function placeSelectedPart() {
+            if (gameState.selectedPart) {
+                tryPlacePart(gameState.selectedPart);
+            }
+        }
+
+        function updateProgress() {
+            const progress = Math.round((gameState.placedParts.size / gameState.totalParts) * 100);
+            document.getElementById('progressFill').style.width = progress + '%';
+            document.getElementById('progressFill').textContent = progress + '%';
+            
+            const messages = [
+                '请选择一个部件开始拼装',
+                '很好！继续拼装其他部件',
+                '进度过半！加油！',
+                '快要完成了！',
+                '🎉 水碓拼装完成！'
+            ];
+
+            document.getElementById('statusText').textContent =
+                messages[Math.min(Math.floor(progress / 25), messages.length - 1)];
+            
+            if (gameState.placedParts.size === gameState.totalParts) {
+                // 拼装完成，启动展示动画
+                showDemoAnimation = true;
+                setTimeout(() => {
+                    document.getElementById('completionModal').classList.add('show');
+                }, 500);
+            }
+        }
+
+        function resetGame() {
+            gameState.placedParts.clear();
+            gameState.selectedPart = null;
+            selectedMesh = null;
+            showDemoAnimation = false; // 关闭展示动画
+            wheelRotation = 0; // 重置水轮旋转
+            isCamPressing = false;
+            leverReleasePhase = false;
+            leverSwingCompleted = false;
+            leverReleaseVelocity = 0;
+
+            Object.keys(partMeshes).forEach((key, index) => {
+                const mesh = partMeshes[key];
+                const config = partsConfig[key];
+                mesh.position.set(-8, 2, 5); // 回到隐藏位置
+                mesh.rotation.set(0, 0, 0);
+                mesh.userData.isPlaced = false;
+                mesh.visible = false; // 隐藏部件
+
+                mesh.traverse(child => {
+                    if (child.isMesh) {
+                        child.material.emissive?.setHex(0x000000);
+                    }
+                });
+            });
+
+            Object.values(ghostMeshes).forEach(ghost => {
+                ghost.visible = true;
+            });
+
+            document.querySelectorAll('.part-item').forEach(item => {
+                item.classList.remove('selected', 'part-placed');
+            });
+
+            document.getElementById('completionModal').classList.remove('show');
+            updateProgress();
+        }
+
+        // 水轮动画变量
+        let wheelRotation = 0;
+        let linkOffset = 0;
+        let showDemoAnimation = false; // 拼装完成后展示动画标志
+
+        // 碓杠联动状态
+        let isCamPressing = false;
+        let leverReleasePhase = false;
+        let leverSwingCompleted = false;
+        let leverReleaseVelocity = 0;
+        let wheelLogicRotation = 0;
+
+        function animate() {
+            requestAnimationFrame(animate);
+            controls.update();
+
+            // 未放置的部件缓慢旋转
+            /*Object.values(partMeshes).forEach(mesh => {
+                if (!mesh.userData.isPlaced && mesh !== selectedMesh) {
+                    mesh.rotation.y += 0.005;
+                }
+            });*/
+
+            // 确保所有已放置的部件可见
+            Object.values(partMeshes).forEach(mesh => {
+                if (mesh.userData.isPlaced) {
+                    mesh.visible = true;
+                }
+            });
+
+            if (gameState.placedParts.has('wheel') && partMeshes.wheel) {
+                const wheelMesh = partMeshes.wheel;
+                const rotationSpeed = 0.05;
+                wheelMesh.rotateZ(rotationSpeed);
+
+                wheelLogicRotation = (wheelLogicRotation + rotationSpeed) % (Math.PI * 2);
+                wheelRotation = wheelLogicRotation;
+                //wheelRotation = (wheelMesh.rotation.z % (Math.PI * 2) + Math.PI * 2) % (Math.PI * 2);
+
+                if (gameState.placedParts.has('lever') && partMeshes.lever) {
+                    const leverMesh = partMeshes.lever;
+                    if (leverMesh.userData.isPlaced) {
+                        leverMesh.position.copy(partsConfig.lever.targetPos);
+                        leverMesh.visible = true;
+
+                        const crossLeverPivot = leverMesh.userData.crossLeverPivot || leverMesh.children.find(c => c.userData.isCrossLeverPivot);
+                        if (crossLeverPivot) {
+                            const pressAngle = -0.52;
+                            const releaseAngle = 0.45;
+
+                            
+
+                            const angle = Math.sin(wheelRotation - Math.PI/2)*0.485 + 0.03;
+
+                            
+
+                            crossLeverPivot.rotation.z = angle;
+                            /*const pressStart = 0.9;
+                            const pressEnd = 2.3;
+                            const releaseBaseSpeed = 0.0002;
+                            const releaseAccel = 0.0012; 
+
+                            const isPressPhase = wheelRotation >= pressStart && wheelRotation <= pressEnd;
+                            if (isPressPhase) {
+                                if (!isCamPressing) {
+                                    isCamPressing = true;
+                                    leverReleasePhase = false;
+                                    leverSwingCompleted = false;
+                                    leverReleaseVelocity = releaseBaseSpeed;
+                                }
+                                const progress = Math.max(0, Math.min(1, (wheelRotation - pressStart) / (pressEnd - pressStart)));
+                                crossLeverPivot.rotation.z = pressAngle * progress;
+                            } else {
+                                if (isCamPressing && !leverReleasePhase && !leverSwingCompleted) {
+                                    leverReleasePhase = true;
+                                    isCamPressing = false;
+                                    leverReleaseVelocity = releaseBaseSpeed;
+                                }
+                                if (leverReleasePhase && !leverSwingCompleted) {
+                                    leverReleaseVelocity += releaseAccel;
+                                    crossLeverPivot.rotation.z = Math.min(releaseAngle, crossLeverPivot.rotation.z + leverReleaseVelocity);
+                                    if (crossLeverPivot.rotation.z >= releaseAngle - 0.001) {
+                                        crossLeverPivot.rotation.z = releaseAngle;
+                                        leverSwingCompleted = true;
+                                        leverReleasePhase = false;
+                                        leverReleaseVelocity = 0;
+                                    }
+                                }
+                            }*/
+                        }
+                    }
+                }
+
+            } else {
+                if (gameState.placedParts.has('lever') && partMeshes.lever) {
+                    const leverMesh = partMeshes.lever;
+                    if (leverMesh.userData.isPlaced) {
+                        leverMesh.position.copy(partsConfig.lever.targetPos);
+                        leverMesh.visible = true;
+                        const crossLeverPivot = leverMesh.userData.crossLeverPivot || leverMesh.children.find(c => c.userData.isCrossLeverPivot);
+                        if (crossLeverPivot) {
+                            const leverAngle = Math.sin(wheelRotation) * 0.25;
+                            crossLeverPivot.rotation.z = leverAngle;
+                        }
+                    }
+                }
+            }
+
+            // 水流粒子动画
+            const waterParticles = scene.userData.waterParticles || [];
+            const time = Date.now() * 0.001;
+            waterParticles.forEach(particle => {
+                particle.position.x -= particle.userData.speed;
+                particle.position.y -= particle.userData.speed * 0.6;
+                particle.position.z += Math.sin(time * 3 + particle.userData.offset) * 0.002;
+                if (particle.position.y < -0.5 || particle.position.x < -0.3) {
+                    particle.position.y = 2.25 + Math.random() * 0.2;
+                    particle.position.x = 1.0 + Math.random() * 0.2;
+                    particle.position.z = (Math.random() - 0.5) * 0.3;
+                }
+            });
+
+            renderer.render(scene, camera);
+        }
+
+        // 全局函数
+        window.closeModal = function() {
+            document.getElementById('completionModal').classList.remove('show');
+            // 关闭模态框后，相机自动旋转展示作品
+            controls.autoRotate = true;
+            controls.autoRotateSpeed = 2.0;
+        };
+
+        window.resetGame = resetGame;
+
+        // UI 事件
+        document.addEventListener('DOMContentLoaded', () => {
+            initScene();
+
+            // 部件列表拖拽功能
+            let draggedPartType = null;
+
+            document.querySelectorAll('.part-item').forEach(item => {
+                // 点击选择
+                item.addEventListener('click', () => {
+                    const partType = item.dataset.part;
+                    const mesh = partMeshes[partType];
+                    if (mesh && !mesh.userData.isPlaced) {
+                        selectPart(partType, mesh);
+                    }
+                });
+
+                // 拖拽开始
+                item.addEventListener('dragstart', (e) => {
+                    const partType = item.dataset.part;
+                    const mesh = partMeshes[partType];
+                    if (mesh && !mesh.userData.isPlaced) {
+                        draggedPartType = partType;
+                        e.dataTransfer.setData('text/plain', partType);
+                        e.dataTransfer.effectAllowed = 'copy';
+                        // 设置拖拽预览
+                        const preview = item.querySelector('.part-preview').textContent;
+                        e.dataTransfer.setDragImage(item, 20, 20);
+                    } else {
+                        e.preventDefault();
+                    }
+                });
+
+                // 拖拽结束
+                item.addEventListener('dragend', () => {
+                    draggedPartType = null;
+                });
+            });
+
+            // 画布拖拽经过
+            renderer.domElement.addEventListener('dragover', (e) => {
+                e.preventDefault();
+                e.dataTransfer.dropEffect = 'copy';
+            });
+
+            // 画布放置
+            renderer.domElement.addEventListener('drop', (e) => {
+                e.preventDefault();
+                const partType = e.dataTransfer.getData('text/plain');
+                if (partType && draggedPartType === partType) {
+                    const mesh = partMeshes[partType];
+                    if (mesh && !mesh.userData.isPlaced) {
+                        // 显示部件
+                        mesh.visible = true;
+                        
+                        // 计算鼠标在 3D 空间的位置
+                        mouse.x = ((e.clientX - renderer.domElement.offsetLeft) / renderer.domElement.clientWidth) * 2 - 1;
+                        mouse.y = -((e.clientY - renderer.domElement.offsetTop) / renderer.domElement.clientHeight) * 2 + 1;
+                        raycaster.setFromCamera(mouse, camera);
+
+                        // 使用面向相机的平面计算交点
+                        const camDir = camera.position.clone().sub(controls.target).normalize();
+                        const dropPlane = new THREE.Plane(camDir, 0);
+                        dropPlane.constant = -dropPlane.normal.dot(controls.target);
+                        
+                        const target = new THREE.Vector3();
+                        if (raycaster.ray.intersectPlane(dropPlane, target)) {
+                            // 将部件移动到鼠标位置
+                            target.x = Math.max(-8, Math.min(8, target.x));
+                            target.y = Math.max(-1, Math.min(6, target.y));
+                            target.z = Math.max(-5, Math.min(5, target.z));
+                            mesh.position.copy(target);
+                            mesh.rotation.set(0, 0, 0);
+                            selectPart(partType, mesh);
+                        }
+                    }
+                }
+                draggedPartType = null;
+            });
+
+            document.getElementById('placeBtn').addEventListener('click', placeSelectedPart);
+
+            document.getElementById('resetCamera').addEventListener('click', () => {
+                camera.position.set(8, 6, 8); // 与初始位置一致
+                controls.target.set(-1, 1, -1); // 重置视角时也要看向场景中心
+                controls.autoRotate = false; // 重置视角时关闭自动旋转
+                controls.update();
+            });
+
+            document.getElementById('resetGame').addEventListener('click', resetGame);
+
+            document.addEventListener('keydown', (e) => {
+                if (e.key === ' ' || e.key === 'Enter') {
+                    e.preventDefault();
+                    placeSelectedPart();
+                }
+                if (e.key === 'r' || e.key === 'R') {
+                    resetGame();
+                }
+                if (e.key === 'Escape') {
+                    if (selectedMesh) {
+                        selectedMesh.traverse(child => {
+                            if (child.isMesh) {
+                                child.material.emissive?.setHex(0x000000);
+                            }
+                        });
+                        selectedMesh = null;
+                        gameState.selectedPart = null;
+                        document.querySelectorAll('.part-item').forEach(item => {
+                            item.classList.remove('selected');
+                        });
+                    }
+                }
+            });
+        });
+    </script>
+</body> 
+</html>
