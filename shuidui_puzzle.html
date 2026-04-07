@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>天工开物 - 水碓 3D 拼装</title>
+    <title>3D水碓拼图游戏</title>
     <style>
         * {
             margin: 0;
@@ -38,7 +38,7 @@
 
         header {
             position: absolute;
-            top: 0;
+            top: 0px;
             left: 0;
             right: 0;
             padding: 15px 30px;
@@ -171,6 +171,15 @@
 
         .btn-reset {
             background: linear-gradient(145deg, #5c5c5c, #7a7a7a);
+        }
+
+        .btn-primary {
+            background: linear-gradient(145deg, #228b22, #32cd32);
+        }
+
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(34,139,34,0.4);
         }
 
         .progress-panel {
@@ -380,18 +389,11 @@
                         <p>引水通道</p>
                     </div>
                 </div>
-                    <div class="part-preview">🌊</div>
-                    <div class="part-info">
-                        <h3>水槽</h3>
-                        <p>引水通道</p>
-                    </div>
-                </div>
             </div>
         </div>
 
         <div class="controls-panel">
             <h3>🎮 控制</h3>
-            <button class="btn" id="placeBtn">放置部件 (空格)</button>
             <button class="btn" id="resetCamera">重置视角</button>
             <button class="btn btn-reset" id="resetGame">重新开始</button>
         </div>
@@ -425,6 +427,7 @@
             <div class="btn-group">
                 <button class="btn" onclick="closeModal()">继续欣赏</button>
                 <button class="btn btn-reset" onclick="resetGame()">重新拼装</button>
+                <button class="btn btn-primary" onclick="goToMainPage()">返回主页面</button>
             </div>
         </div>
     </div>
@@ -448,6 +451,7 @@
         let selectedMesh = null;
         let isDragging = false;
         let dragPlane;
+        let dragLine = null; // 引导线
 
         // 部件配置 - 精确校准位置和旋转
         const partsConfig = {
@@ -464,10 +468,10 @@
                 startPos: new THREE.Vector3(-6-0.3, 1.5, 0)
             },
             trough: {
-                targetPos: new THREE.Vector3(1.2, 2.45, 0),
-                targetRot: new THREE.Vector3(0, 0, -0.2),
+                 targetPos: new THREE.Vector3(2.2, 2.62, 0),
+                targetRot: new THREE.Vector3(0, 0, 0),
                 color: 0x4682B4,
-                startPos: new THREE.Vector3(-3, 4, 0)
+                startPos: new THREE.Vector3(-3, 4+1, 0)
             }
         };
 
@@ -704,6 +708,8 @@
                         opacity: 0.25,
                         depthWrite: false
                     });
+                    child.castShadow = false;
+                    child.receiveShadow = false;
                     child.renderOrder = 1;
 
                     const edges = new THREE.EdgesGeometry(child.geometry);
@@ -724,7 +730,55 @@
             ghostGroup.userData = { partType: type, isGhost: true };
 
             return ghostGroup;
-        }    
+        }
+
+        function getTroughOutletWorldPosition() {
+            const placedTrough = partMeshes.trough;
+            const sourceTrough = (placedTrough && placedTrough.userData.isPlaced) ? placedTrough : ghostMeshes.trough;
+
+            if (sourceTrough) {
+                sourceTrough.updateMatrixWorld(true);
+                return sourceTrough.localToWorld(new THREE.Vector3(-0.88, 0.02, 0));
+            }
+
+            // 在初始化早期（幽灵模型还未创建）使用配置值回退。
+            const cfg = partsConfig.trough;
+            const outletLocal = new THREE.Vector3(-0.88, 0.02, 0);
+            outletLocal.applyEuler(new THREE.Euler(cfg.targetRot.x, cfg.targetRot.y, cfg.targetRot.z, 'XYZ'));
+            return cfg.targetPos.clone().add(outletLocal);
+        }
+
+        function getTroughFlowDirectionWorld() {
+            const placedTrough = partMeshes.trough;
+            const sourceTrough = (placedTrough && placedTrough.userData.isPlaced) ? placedTrough : ghostMeshes.trough;
+
+            if (sourceTrough) {
+                sourceTrough.updateMatrixWorld(true);
+                const q = new THREE.Quaternion();
+                sourceTrough.getWorldQuaternion(q);
+                return new THREE.Vector3(-1, 0, 0).applyQuaternion(q).normalize();
+            }
+
+            const cfg = partsConfig.trough;
+            return new THREE.Vector3(-1, 0, 0)
+                .applyEuler(new THREE.Euler(cfg.targetRot.x, cfg.targetRot.y, cfg.targetRot.z, 'XYZ'))
+                .normalize();
+        }
+
+        function resetWaterParticle(particle, outlet, flowDir) {
+            particle.position.set(
+                outlet.x + (Math.random() - 0.5) * 0.08,
+                outlet.y + Math.random() * 0.04,
+                outlet.z + (Math.random() - 0.5) * 0.12
+            );
+
+            const flowSpeed = 0.03 + Math.random() * 0.02;
+            const spread = 0.008;
+            particle.userData.vx = flowDir.x * flowSpeed + (Math.random() - 0.5) * spread;
+            particle.userData.vy = flowDir.y * flowSpeed + (Math.random() - 0.5) * spread;
+            particle.userData.vz = flowDir.z * flowSpeed + (Math.random() - 0.5) * spread;
+        }
+
         // 初始化场景
         function initScene() {
             const container = document.getElementById('canvas-container');
@@ -741,7 +795,7 @@
                 0.1,
                 1000
             );
-            camera.position.set(8, 6, 8); // 调整相机位置，让所有部件都在视野内
+            camera.position.set(4, 3, 4);
 
             // 渲染器
             renderer = new THREE.WebGLRenderer({ antialias: true });
@@ -835,16 +889,16 @@
 
             for (let i = 0; i < waterParticleCount; i++) {
                 const particle = new THREE.Mesh(waterGeometry, waterMaterial);
-                // 初始位置在水槽出口处（水流冲击轮盘上部）
-                particle.position.set(
-                    1.0 + Math.random() * 0.2,
-                    2.25 + Math.random() * 0.2,
-                    (Math.random() - 0.5) * 0.3
-                );
+                const outlet = getTroughOutletWorldPosition();
+                const flowDir = getTroughFlowDirectionWorld();
                 particle.userData = {
-                    speed: 0.03 + Math.random() * 0.02,
-                    offset: Math.random() * Math.PI * 2
+                    offset: Math.random() * Math.PI * 2,
+                    vx: 0,
+                    vy: 0,
+                    vz: 0
                 };
+                resetWaterParticle(particle, outlet, flowDir);
+                particle.visible = false;
                 scene.add(particle);
                 waterParticles.push(particle);
             }
@@ -922,6 +976,12 @@
                     // 拖拽时重置旋转以便操作
                     obj.userData.draggingRot = obj.rotation.clone();
                     obj.rotation.set(0, 0, 0);
+
+                    // 创建引导线
+                    const config = partsConfig[partType];
+                    if (config) {
+                        createDragLine(obj.position, config.targetPos);
+                    }
                 }
             }
         }
@@ -937,7 +997,7 @@
             // 使用世界坐标系的拖拽平面，让拖拽更自然
             // 根据相机角度动态选择平面方向
             const camDir = camera.position.clone().sub(controls.target).normalize();
-            
+
             // 如果相机从上方看，使用水平平面；如果从侧面看，使用垂直平面
             if (Math.abs(camDir.y) > 0.5) {
                 // 从上方看 - 水平平面
@@ -954,16 +1014,38 @@
                 target.y = Math.max(-2, Math.min(5, target.y));
                 target.z = Math.max(-4, Math.min(4, target.z));
                 selectedMesh.position.copy(target);
+
+                // 更新引导线
+                const config = partsConfig[selectedMesh.userData.partType];
+                if (config) {
+                    updateDragLine(selectedMesh.position, config.targetPos);
+                }
             }
         }
 
         function onMouseUp() {
             if (isDragging && selectedMesh) {
                 const partType = selectedMesh.userData.partType;
-                tryPlacePart(partType);
+                const config = partsConfig[partType];
+                const targetPos = config.targetPos;
+                const distance = selectedMesh.position.distanceTo(targetPos);
+
+                // 使用指南车的吸附距离规则
+                if (distance < 3.5) {
+                    snapToTarget(selectedMesh, partType);
+                } else {
+                    // 距离太远，提示用户
+                    document.getElementById('statusText').textContent = '部件距离目标位置太远，请拖近一点再放置（距离：' + distance.toFixed(1) + '）';
+                    // 隐藏回初始位置
+                    selectedMesh.position.set(-8, 2, 5);
+                    selectedMesh.visible = false;
+                    selectedMesh = null;
+                    gameState.selectedPart = null;
+                }
             }
             isDragging = false;
             controls.enabled = true;
+            removeDragLine();
         }
 
         function selectPart(partType, mesh) {
@@ -1002,93 +1084,155 @@
             return names[type] || type;
         }
 
-        function tryPlacePart(partType) {
-            const mesh = partMeshes[partType];
-            const config = partsConfig[partType];
+        // ==================== 引导线功能 ====================
+        function createDragLine(startPos, targetPos) {
+            removeDragLine();
 
-            if (!mesh || mesh.userData.isPlaced) return false;
-
-            const distance = mesh.position.distanceTo(config.targetPos);
-            const rotationDistance = Math.abs(mesh.rotation.x - config.targetRot.x)
-                + Math.abs(mesh.rotation.y - config.targetRot.y)
-                + Math.abs(mesh.rotation.z - config.targetRot.z);
-
-            // 允许一定的误差，防止最后一块部件卡死
-            if (distance < 0.8 && rotationDistance < 2.5) {
-                // 精确放置到目标位置和旋转
-                mesh.position.copy(config.targetPos);
-                mesh.rotation.set(config.targetRot.x, config.targetRot.y, config.targetRot.z, config.targetRot.order || 'XYZ');
-                mesh.userData.isPlaced = true;
-                mesh.visible = true; // 确保可见
-
-                // 更新 UI
-                const partItem = document.querySelector(`.part-item[data-part="${partType}"]`);
-                if (partItem) {
-                    partItem.classList.add('part-placed');
-                }
-
-                // 隐藏幽灵模型
-                if (ghostMeshes[partType]) {
-                    ghostMeshes[partType].visible = false;
-                }
-
-                gameState.placedParts.add(partType);
-                updateProgress();
-
-                // 仅在成功放置后清除选中状态，避免放置失败后卡死
-                selectedMesh = null;
-                gameState.selectedPart = null;
-
-                // 播放放置动画效果
-                playPlaceEffect(mesh);
-
-                return true;
-            } else {
-                // 距离太远，提示用户并保留当前选中状态
-                document.getElementById('statusText').textContent = '部件距离目标位置太远，请拖近一点再放置（距离：' + distance.toFixed(1) + '）';
-            }
-
-            return false;
+            const points = [
+                new THREE.Vector3(startPos.x, startPos.y, startPos.z),
+                new THREE.Vector3(targetPos.x, targetPos.y, targetPos.z)
+            ];
+            const geometry = new THREE.BufferGeometry().setFromPoints(points);
+            const material = new THREE.LineBasicMaterial({ color: 0xffd700, linewidth: 2 });
+            dragLine = new THREE.Line(geometry, material);
+            scene.add(dragLine);
         }
 
-        // 放置效果动画
-        function playPlaceEffect(mesh) {
-            let scale = 1;
-            let growing = true;
-            const animateEffect = () => {
-                if (growing) {
-                    scale += 0.1;
-                    if (scale >= 1.2) growing = false;
-                } else {
-                    scale -= 0.1;
-                    if (scale <= 1) {
-                        mesh.scale.setScalar(1);
-                        // 恢复后添加发光效果
-                        mesh.traverse(child => {
-                            if (child.isMesh) {
-                                child.material.emissive?.setHex(0x000000);
-                            }
-                        });
-                        return;
+        function updateDragLine(startPos, targetPos) {
+            if (!dragLine) return;
+            const positions = dragLine.geometry.attributes.position.array;
+            positions[0] = startPos.x;
+            positions[1] = startPos.y;
+            positions[2] = startPos.z;
+            positions[3] = targetPos.x;
+            positions[4] = targetPos.y;
+            positions[5] = targetPos.z;
+            dragLine.geometry.attributes.position.needsUpdate = true;
+        }
+
+        function removeDragLine() {
+            if (!dragLine) return;
+            scene.remove(dragLine);
+            dragLine.geometry.dispose();
+            dragLine.material.dispose();
+            dragLine = null;
+        }
+
+        // ==================== 吸附到目标位置（平滑 LERP/SLERP 动画）====================
+        function snapToTarget(part, partType) {
+            const config = partsConfig[partType];
+            const startPos = part.position.clone();
+            const startQuat = part.quaternion.clone();
+
+            // 目标位置和目标旋转
+            const endPos = config.targetPos.clone();
+            const targetEuler = new THREE.Euler(config.targetRot.x, config.targetRot.y, config.targetRot.z, 'XYZ');
+            const endQuat = new THREE.Quaternion().setFromEuler(targetEuler);
+
+            let progress = 0;
+
+            function animateSnap() {
+                progress = Math.min(progress + 0.08, 1);
+
+                // 使用 LERP 和 SLERP 实现平滑过渡
+                part.position.lerpVectors(startPos, endPos, progress);
+                part.quaternion.slerpQuaternions(startQuat, endQuat, progress);
+
+                if (progress >= 1) {
+                    part.userData.isPlaced = true;
+                    part.visible = true;
+
+                    // 更新 UI
+                    const partItem = document.querySelector(`.part-item[data-part="${partType}"]`);
+                    if (partItem) {
+                        partItem.classList.add('part-placed');
                     }
+
+                    // 隐藏幽灵模型
+                    if (ghostMeshes[partType]) {
+                        ghostMeshes[partType].visible = false;
+                    }
+
+                    gameState.placedParts.add(partType);
+                    updateProgress();
+                    playSuccessEffect(part);
+
+                    // 检查是否全部完成
+                    if (gameState.placedParts.size === gameState.totalParts) {
+                        if (completionModalTimer) {
+                            clearTimeout(completionModalTimer);
+                        }
+                        completionModalTimer = setTimeout(() => {
+                            showDemoAnimation = true;
+                            document.getElementById('completionModal').classList.add('show');
+                        }, 500);
+                    }
+                    return;
                 }
-                mesh.scale.setScalar(scale);
-                requestAnimationFrame(animateEffect);
-            };
-            
-            // 添加发光效果
-            mesh.traverse(child => {
-                if (child.isMesh) {
-                    child.material.emissive?.setHex(0x333333);
+
+                requestAnimationFrame(animateSnap);
+            }
+
+            animateSnap();
+        }
+
+        // ==================== 成功粒子效果 ====================
+        function playSuccessEffect(part) {
+            const particleCount = 30;
+            const particles = [];
+
+            for (let i = 0; i < particleCount; i++) {
+                const geometry = new THREE.SphereGeometry(0.06, 4, 4);
+                const material = new THREE.MeshBasicMaterial({
+                    color: 0xffd700,
+                    transparent: true,
+                    opacity: 1
+                });
+                const particle = new THREE.Mesh(geometry, material);
+                particle.position.copy(part.position);
+                particle.userData = {
+                    velocity: new THREE.Vector3(
+                        (Math.random() - 0.5) * 0.15,
+                        Math.random() * 0.15,
+                        (Math.random() - 0.5) * 0.15
+                    ),
+                    life: 1.0
+                };
+                scene.add(particle);
+                particles.push(particle);
+            }
+
+            let frame = 0;
+            function animateParticles() {
+                frame++;
+                if (frame > 60) {
+                    particles.forEach(p => {
+                        scene.remove(p);
+                        p.geometry.dispose();
+                        p.material.dispose();
+                    });
+                    return;
                 }
-            });
-            
-            animateEffect();
+
+                particles.forEach(p => {
+                    p.position.add(p.userData.velocity);
+                    p.userData.velocity.y -= 0.003;
+                    p.userData.life -= 0.016;
+                    p.material.opacity = Math.max(0, p.userData.life);
+                });
+
+                requestAnimationFrame(animateParticles);
+            }
+            animateParticles();
         }
 
         function placeSelectedPart() {
-            if (gameState.selectedPart) {
-                tryPlacePart(gameState.selectedPart);
+            if (gameState.selectedPart && selectedMesh) {
+                const config = partsConfig[gameState.selectedPart];
+                const distance = selectedMesh.position.distanceTo(config.targetPos);
+                if (distance < 3.5) {
+                    snapToTarget(selectedMesh, gameState.selectedPart);
+                }
             }
         }
 
@@ -1111,7 +1255,10 @@
             if (gameState.placedParts.size === gameState.totalParts) {
                 // 拼装完成，启动展示动画
                 showDemoAnimation = true;
-                setTimeout(() => {
+                if (completionModalTimer) {
+                    clearTimeout(completionModalTimer);
+                }
+                completionModalTimer = setTimeout(() => {
                     document.getElementById('completionModal').classList.add('show');
                 }, 500);
             }
@@ -1123,10 +1270,18 @@
             selectedMesh = null;
             showDemoAnimation = false; // 关闭展示动画
             wheelRotation = 0; // 重置水轮旋转
+            wheelLogicRotation = 0; // 重置水轮逻辑角度
             isCamPressing = false;
             leverReleasePhase = false;
             leverSwingCompleted = false;
             leverReleaseVelocity = 0;
+            removeDragLine(); // 清除引导线
+            controls.autoRotate = false; // 重置后保持静止
+
+            if (completionModalTimer) {
+                clearTimeout(completionModalTimer);
+                completionModalTimer = null;
+            }
 
             Object.keys(partMeshes).forEach((key, index) => {
                 const mesh = partMeshes[key];
@@ -1166,6 +1321,7 @@
         let leverSwingCompleted = false;
         let leverReleaseVelocity = 0;
         let wheelLogicRotation = 0;
+        let completionModalTimer = null;
 
         function animate() {
             requestAnimationFrame(animate);
@@ -1266,14 +1422,26 @@
             // 水流粒子动画
             const waterParticles = scene.userData.waterParticles || [];
             const time = Date.now() * 0.001;
+            const outlet = getTroughOutletWorldPosition();
+            const flowDir = getTroughFlowDirectionWorld();
+            const isTroughPlaced = gameState.placedParts.has('trough');
             waterParticles.forEach(particle => {
-                particle.position.x -= particle.userData.speed;
-                particle.position.y -= particle.userData.speed * 0.6;
-                particle.position.z += Math.sin(time * 3 + particle.userData.offset) * 0.002;
-                if (particle.position.y < -0.5 || particle.position.x < -0.3) {
-                    particle.position.y = 2.25 + Math.random() * 0.2;
-                    particle.position.x = 1.0 + Math.random() * 0.2;
-                    particle.position.z = (Math.random() - 0.5) * 0.3;
+                particle.visible = isTroughPlaced;
+
+                // 沿槽口法线喷出，并叠加重力形成抛物线。
+                particle.userData.vy -= 0.0008;
+                particle.position.x += particle.userData.vx;
+                particle.position.y += particle.userData.vy;
+                particle.position.z += particle.userData.vz;
+                particle.position.z += Math.sin(time * 4 + particle.userData.offset) * 0.0015;
+
+                // 超出可视流域后回收，并从槽口重新喷出。
+                const dx = particle.position.x - outlet.x;
+                const dy = particle.position.y - outlet.y;
+                const dz = particle.position.z - outlet.z;
+                const distanceSq = dx * dx + dy * dy + dz * dz;
+                if (particle.position.y < 0.45 || distanceSq > 10) {
+                    resetWaterParticle(particle, outlet, flowDir);
                 }
             });
 
@@ -1286,6 +1454,11 @@
             // 关闭模态框后，相机自动旋转展示作品
             controls.autoRotate = true;
             controls.autoRotateSpeed = 2.0;
+        };
+
+        window.goToMainPage = function() {
+            // 修改为你想要跳转的主页面 URL
+            window.location.href = 'ui.html';
         };
 
         window.resetGame = resetGame;
@@ -1370,10 +1543,8 @@
                 draggedPartType = null;
             });
 
-            document.getElementById('placeBtn').addEventListener('click', placeSelectedPart);
-
             document.getElementById('resetCamera').addEventListener('click', () => {
-                camera.position.set(8, 6, 8); // 与初始位置一致
+                camera.position.set(4, 3, 4); // 与初始位置一致
                 controls.target.set(-1, 1, -1); // 重置视角时也要看向场景中心
                 controls.autoRotate = false; // 重置视角时关闭自动旋转
                 controls.update();
