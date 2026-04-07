@@ -396,6 +396,7 @@
             <h3>🎮 控制</h3>
             <button class="btn" id="resetCamera">重置视角</button>
             <button class="btn btn-reset" id="resetGame">重新开始</button>
+            <button class="btn btn-primary" id="backToMain">返回主界面</button>
         </div>
 
         <div class="progress-panel">
@@ -1551,6 +1552,7 @@
             });
 
             document.getElementById('resetGame').addEventListener('click', resetGame);
+            document.getElementById('backToMain').addEventListener('click', goToMainPage);
 
             document.addEventListener('keydown', (e) => {
                 if (e.key === ' ' || e.key === 'Enter') {
