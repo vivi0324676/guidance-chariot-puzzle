@@ -413,6 +413,7 @@
         </div>
     </div>
     
+    //用本地的库替换CDN
     <script type="module">
         import * as THREE from './libs/three.module.min.js';
         import { OrbitControls } from './libs/OrbitControls.js';
@@ -421,8 +422,8 @@
         let scene, camera, renderer, controls;
         let parts = [];
         let assembledParts = [];
-        let selectedPart = null;
-        let activePart = null; // 从零件库选中的可拖动零件
+        let chosenPart = null;
+        let activePart = null; // 从零件库选零件
         let dragLine = null;
         let raycaster, mouse;
         let dragPlane;
@@ -470,7 +471,7 @@
             mouse = new THREE.Vector2();
             dragPlane = new THREE.Plane(new THREE.Vector3(0, 1, 0), 0);
             
-            // 创建参考模型（半透明幽灵版本）
+            // 创建参考模型
             createGuideModel();
             
             // 创建可交互零件
@@ -484,7 +485,7 @@
                 loading.style.display = 'none';
             }
             
-            // 添加拖放事件
+           
             const canvasContainer = document.getElementById('canvas-container');
             canvasContainer.addEventListener('dragover', (e) => {
                 e.preventDefault();
@@ -518,9 +519,9 @@
                         } else {
                             activePart.rotation.set(0, 0, 0);
                         }
-                        selectedPart = activePart;
+                        chosenPart = activePart;
                         controls.enabled = false;
-                        createDragLine(selectedPart.position, selectedPart.userData.targetPosition);
+                        createDragLine(chosenPart.position, chosenPart.userData.targetPosition);
                     }
                 }
             });
@@ -600,7 +601,7 @@
                     if (config.type === 'wheel') {
                         mesh.rotation.y = Math.PI / 2;
                     } else if (config.type === 'axle') {
-                        // 注意：CylinderGeometry 默认是沿 Y 轴的，我们创建时旋转了它
+                        // 注意CylinderGeometry 默认是沿 Y 轴的，我们创建时旋转了它
                         // 这里要匹配 createAxle 的旋转
                         mesh.rotation.z = Math.PI / 2;
                     } else if (config.type === 'shaft'){
@@ -610,15 +611,7 @@
 
                     } else if(config.type === 'support'){
                         mesh.rotation.y = Math.PI + Math.PI / 2;
-9
                     }
-                        /*mesh.rotation.y = Math.PI + Math.PI / 2;
-                        mesh.scale.y = -1;
-                    } else if(config.type === 'support'){
-                        mesh.rotation.y = Math.PI + Math.PI / 2;
-                    }*/
-
-                    
                     guideModel.add(mesh);
                 }
             });
@@ -797,22 +790,22 @@
             const body = new THREE.Mesh(bodyGeometry, partMaterial);
             group.add(body);
             
-            // 装饰条 - 只在非线框模式下添加
+            // 装饰条 
             if (!material || !material.wireframe) {
-                const trimMaterial = new THREE.MeshStandardMaterial({ color: 0x4a3728 });
-                const trimGeometry = new THREE.BoxGeometry(2.25, 0.06, 0.06);
-                const trim1 = new THREE.Mesh(trimGeometry, trimMaterial);
-                trim1.position.y = 0.35;
-                group.add(trim1);
-                const trim2 = new THREE.Mesh(trimGeometry, trimMaterial);
-                trim2.position.y = -0.35;
-                group.add(trim2);
+                const decoMaterial = new THREE.MeshStandardMaterial({ color: 0x4a3728 });
+                const cleanPiece = new THREE.BoxGeometry(2.25, 0.06, 0.06);
+                const clean1 = new THREE.Mesh(cleanPiece, decoMaterial);
+                clean1.position.y = 0.35;
+                group.add(clean1);
+                const clean2 = new THREE.Mesh(cleanPiece, decoMaterial);
+                clean2.position.y = -0.35;
+                group.add(clean2);
                 
                 const topTrimGeo = new THREE.BoxGeometry(0.06, 0.06, 1.45);
-                const topTrim1 = new THREE.Mesh(topTrimGeo, trimMaterial);
+                const topTrim1 = new THREE.Mesh(topTrimGeo, decoMaterial);
                 topTrim1.position.set(1.08, 0.45, 0);
                 group.add(topTrim1);
-                const topTrim2 = new THREE.Mesh(topTrimGeo, trimMaterial);
+                const topTrim2 = new THREE.Mesh(topTrimGeo, decoMaterial);
                 topTrim2.position.set(-1.08, 0.45, 0);
                 group.add(topTrim2);
             }
@@ -869,17 +862,6 @@
             leftArm.position.set(-0.16, 0.18, 0);
             group.add(leftArm);
 
-            /*const rightArm = new THREE.Mesh(armGeometry, partMaterial);
-            rightArm.rotation.z = -0.15;
-            rightArm.position.set(0.25, 0.16, 0);
-            group.add(rightArm);*/
-            
-            /*const fingerGeometry = new THREE.CylinderGeometry(0.015, 0.015, 0.1, 12);
-            const finger = new THREE.Mesh(fingerGeometry, partMaterial);
-            finger.rotation.z = -Math.PI / 2;
-            finger.position.set(0.42, 0.16, 0);
-            group.add(finger);*/
-            
             // 装饰物只在非线框模式下显示
             if (!material || !material.wireframe) {
                 const robeMaterial = new THREE.MeshStandardMaterial({ color: 0x8B0000, roughness: 0.7 });
@@ -996,13 +978,13 @@
             mouse.x = (event.clientX / window.innerWidth) * 2 - 1;
             mouse.y = -(event.clientY / window.innerHeight) * 2 + 1;
             
-            if (selectedPart) {
+            if (chosenPart) {
                 raycaster.setFromCamera(mouse, camera);
                 const intersection = new THREE.Vector3();
                 if (raycaster.ray.intersectPlane(dragPlane, intersection)) {
-                    selectedPart.position.x = intersection.x;
-                    selectedPart.position.z = intersection.z;
-                    updateDragLine(selectedPart.position, selectedPart.userData.targetPosition);
+                    chosenPart.position.x = intersection.x;
+                    chosenPart.position.z = intersection.z;
+                    updateDragLine(chosenPart.position, chosenPart.userData.targetPosition);
                 }
             }
         }
@@ -1035,42 +1017,42 @@
                 
                 // 仅允许当前从零件库激活的零件被点击拾取
                 if (part && activePart && part === activePart && !part.userData.isAssembled) {
-                    selectedPart = part;
+                    chosenPart = part;
                     controls.enabled = false;
                     // 左右车轮和支撑脚不执行抬起动作，避免吸附时出现抬起落下观感。
-                    if (selectedPart.userData.type !== 'wheel' && selectedPart.userData.type !== 'support') {
-                        selectedPart.position.y = 2;
+                    if (chosenPart.userData.type !== 'wheel' && chosenPart.userData.type !== 'support') {
+                        chosenPart.position.y = 2;
                     }
-                    createDragLine(selectedPart.position, selectedPart.userData.targetPosition);
+                    createDragLine(chosenPart.position, chosenPart.userData.targetPosition);
                 }
             }
         }
         
         function onMouseUp() {
-            if (selectedPart) {
-                const targetPos = selectedPart.userData.targetPosition;
-                const distance = selectedPart.position.distanceTo(targetPos);
+            if (chosenPart) {
+                const targetPos = chosenPart.userData.targetPosition;
+                const distance = chosenPart.position.distanceTo(targetPos);
                 
-                // 寻找对应的幽灵零件
-                const guidePart = guideModel.children.find(child => child.userData.name === selectedPart.userData.name);
+                // 寻找对应的零件
+                const guidePart = guideModel.children.find(child => child.userData.name === chosenPart.userData.name);
 
                 if (guidePart && distance < snapDistance) {
-                    snapToTarget(selectedPart, guidePart);
+                    snapPuzzlePart(chosenPart, guidePart);
                 } else {
-                    // 如果没有吸附，则隐藏回零件库等待重新拖动
-                    selectedPart.position.set(0, -1000, 0);
-                    selectedPart.visible = false;
+                    // 若没有吸附，就隐藏回零件库
+                    chosenPart.position.set(0, -1000, 0);
+                    chosenPart.visible = false;
                 }
                 
                 removeDragLine();
-                selectedPart = null;
+                chosenPart = null;
                 activePart = null;
                 controls.enabled = true;
             }
         }
         
         // ==================== 吸附到目标位置 ====================
-        function snapToTarget(part, guidePart) {
+        function snapPuzzlePart(part, guidePart) {
             // 从 guidePart 获取最终的世界坐标和旋转
             const endPos = new THREE.Vector3();
             const endQuat = new THREE.Quaternion();
@@ -1204,7 +1186,7 @@
                     document.querySelectorAll('.part-item').forEach(item => item.classList.remove('selected'));
                     div.classList.add('selected');
 
-                    // 找到对应的 3D 零件
+                    // 找到3D 零件
                     const part = parts.find(p => p.userData.name === config.name && !p.userData.isAssembled);
                     if (part) {
                         activePart = part;
@@ -1221,9 +1203,9 @@
                         } else {
                             activePart.rotation.set(0, 0, 0);
                         }
-                        selectedPart = activePart;
+                        chosenPart = activePart;
                         controls.enabled = false;
-                        createDragLine(selectedPart.position, selectedPart.userData.targetPosition);
+                        createDragLine(chosenPart.position, chosenPart.userData.targetPosition);
                     }
                 });
 
@@ -1459,8 +1441,7 @@
         
         window.resetGame = function() {
             controls.autoRotate = false;
-            // 1. Remove all meshes, groups, and helpers from the scene.
-            // We iterate backwards because removing items can mess up the index.
+        
             for (let i = scene.children.length - 1; i >= 0; i--) {
                 const child = scene.children[i];
                 if (child.isMesh || child.isGroup || child.isGridHelper) {
@@ -1468,31 +1449,24 @@
                 }
             }
             
-            // 2. Clear data arrays
             parts = [];
             assembledParts = [];
             
-            // 3. Hide win message
+            
             const completionModal = document.getElementById('completionModal');
             if (completionModal) {
                 completionModal.classList.remove('show');
             }
-
-            // 4. Re-create the scene elements
             addGround();
             createGuideModel();
             createParts();
-
-            // 5. Update UI
             updateProgress();
             updatePartsList();
-
-            // 6. Clear selected states
             document.querySelectorAll('.part-item').forEach(item => {
                 item.classList.remove('selected', 'completed');
             });
 
-            // 6. Reset camera to default position
+
             resetCamera();
         };
         

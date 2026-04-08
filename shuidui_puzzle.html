@@ -448,8 +448,8 @@
         let scene, camera, renderer, controls;
         let partMeshes = {};
         let ghostMeshes = {};
-        let raycaster, mouse;
-        let selectedMesh = null;
+        let rayCaster, mouse;
+        let chosenMesh = null;
         let isDragging = false;
         let dragPlane;
         let dragLine = null; // 引导线
@@ -695,7 +695,7 @@
         }
 
         // 创建幽灵模型
-        function createGhost(type, position, rotation) {
+        function createGuideModel(type, position, rotation) {
             const partMesh = createPart(type);
             if (!partMesh) return null;
 
@@ -872,9 +872,9 @@
             scene.add(axesHelper);
 
             // 射线
-            raycaster = new THREE.Raycaster();
-            raycaster.params.Line.threshold = 0.5;
-            raycaster.params.Mesh.threshold = 0.5;
+            rayCaster = new THREE.Raycaster();
+            rayCaster.params.Line.threshold = 0.5;
+            rayCaster.params.Mesh.threshold = 0.5;
             mouse = new THREE.Vector2();
             dragPlane = new THREE.Plane(new THREE.Vector3(0, 0, 1), 0);
 
@@ -910,7 +910,7 @@
             // 创建幽灵模型（目标位置）
             Object.keys(partsConfig).forEach(key => {
                 const config = partsConfig[key];
-                const ghost = createGhost(key, config.targetPos, config.targetRot);
+                const ghost = createGuideModel(key, config.targetPos, config.targetRot);
                 if (ghost) {
                     ghost.visible = true;
                     scene.add(ghost);
@@ -956,11 +956,11 @@
             mouse.x = ((event.clientX - renderer.domElement.offsetLeft) / renderer.domElement.clientWidth) * 2 - 1;
             mouse.y = -((event.clientY - renderer.domElement.offsetTop) / renderer.domElement.clientHeight) * 2 + 1;
 
-            raycaster.setFromCamera(mouse, camera);
+            rayCaster.setFromCamera(mouse, camera);
 
             // 检测所有未放置的模型
             const meshes = Object.values(partMeshes).filter(m => !m.userData.isPlaced);
-            const intersects = raycaster.intersectObjects(meshes, true);
+            const intersects = rayCaster.intersectObjects(meshes, true);
 
             if (intersects.length > 0) {
                 let obj = intersects[0].object;
@@ -988,12 +988,12 @@
         }
 
         function onMouseMove(event) {
-            if (!isDragging || !selectedMesh) return;
+            if (!isDragging || !chosenMesh) return;
 
             mouse.x = ((event.clientX - renderer.domElement.offsetLeft) / renderer.domElement.clientWidth) * 2 - 1;
             mouse.y = -((event.clientY - renderer.domElement.offsetTop) / renderer.domElement.clientHeight) * 2 + 1;
 
-            raycaster.setFromCamera(mouse, camera);
+            rayCaster.setFromCamera(mouse, camera);
 
             // 使用世界坐标系的拖拽平面，让拖拽更自然
             // 根据相机角度动态选择平面方向
@@ -1002,45 +1002,45 @@
             // 如果相机从上方看，使用水平平面；如果从侧面看，使用垂直平面
             if (Math.abs(camDir.y) > 0.5) {
                 // 从上方看 - 水平平面
-                dragPlane.setFromNormalAndCoplanarPoint(new THREE.Vector3(0, 1, 0), selectedMesh.position);
+                dragPlane.setFromNormalAndCoplanarPoint(new THREE.Vector3(0, 1, 0), chosenMesh.position);
             } else {
                 // 从侧面看 - 垂直平面（面向相机）
-                dragPlane.setFromNormalAndCoplanarPoint(camDir, selectedMesh.position);
+                dragPlane.setFromNormalAndCoplanarPoint(camDir, chosenMesh.position);
             }
 
             const target = new THREE.Vector3();
-            if (raycaster.ray.intersectPlane(dragPlane, target)) {
+            if (rayCaster.ray.intersectPlane(dragPlane, target)) {
                 // 限制拖拽范围，防止部件跑太远
                 target.x = Math.max(-6, Math.min(6, target.x));
                 target.y = Math.max(-2, Math.min(5, target.y));
                 target.z = Math.max(-4, Math.min(4, target.z));
-                selectedMesh.position.copy(target);
+                chosenMesh.position.copy(target);
 
                 // 更新引导线
-                const config = partsConfig[selectedMesh.userData.partType];
+                const config = partsConfig[chosenMesh.userData.partType];
                 if (config) {
-                    updateDragLine(selectedMesh.position, config.targetPos);
+                    updateDragLine(chosenMesh.position, config.targetPos);
                 }
             }
         }
 
         function onMouseUp() {
-            if (isDragging && selectedMesh) {
-                const partType = selectedMesh.userData.partType;
+            if (isDragging && chosenMesh) {
+                const partType = chosenMesh.userData.partType;
                 const config = partsConfig[partType];
                 const targetPos = config.targetPos;
-                const distance = selectedMesh.position.distanceTo(targetPos);
+                const distance = chosenMesh.position.distanceTo(targetPos);
 
                 // 使用指南车的吸附距离规则
                 if (distance < 3.5) {
-                    snapToTarget(selectedMesh, partType);
+                    snapToTarget(chosenMesh, partType);
                 } else {
                     // 距离太远，提示用户
                     document.getElementById('statusText').textContent = '部件距离目标位置太远，请拖近一点再放置（距离：' + distance.toFixed(1) + '）';
                     // 隐藏回初始位置
-                    selectedMesh.position.set(-8, 2, 5);
-                    selectedMesh.visible = false;
-                    selectedMesh = null;
+                    chosenMesh.position.set(-8, 2, 5);
+                    chosenMesh.visible = false;
+                    chosenMesh = null;
                     gameState.selectedPart = null;
                 }
             }
@@ -1050,8 +1050,8 @@
         }
 
         function selectPart(partType, mesh) {
-            if (selectedMesh && selectedMesh !== mesh) {
-                selectedMesh.traverse(child => {
+            if (chosenMesh && chosenMesh !== mesh) {
+                chosenMesh.traverse(child => {
                     if (child.isMesh) {
                         child.material.emissive?.setHex(0x000000);
                     }
@@ -1062,13 +1062,13 @@
                 item.classList.remove('selected');
             });
 
-            selectedMesh = mesh;
+            chosenMesh = mesh;
             gameState.selectedPart = partType;
             
             // 确保部件可见
             mesh.visible = true;
 
-            selectedMesh.traverse(child => {
+            chosenMesh.traverse(child => {
                 if (child.isMesh) {
                     child.material.emissive?.setHex(0x333333);
                 }
@@ -1228,11 +1228,11 @@
         }
 
         function placeSelectedPart() {
-            if (gameState.selectedPart && selectedMesh) {
+            if (gameState.selectedPart && chosenMesh) {
                 const config = partsConfig[gameState.selectedPart];
-                const distance = selectedMesh.position.distanceTo(config.targetPos);
+                const distance = chosenMesh.position.distanceTo(config.targetPos);
                 if (distance < 3.5) {
-                    snapToTarget(selectedMesh, gameState.selectedPart);
+                    snapToTarget(chosenMesh, gameState.selectedPart);
                 }
             }
         }
@@ -1268,7 +1268,7 @@
         function resetGame() {
             gameState.placedParts.clear();
             gameState.selectedPart = null;
-            selectedMesh = null;
+            chosenMesh = null;
             showDemoAnimation = false; // 关闭展示动画
             wheelRotation = 0; // 重置水轮旋转
             wheelLogicRotation = 0; // 重置水轮逻辑角度
@@ -1522,7 +1522,7 @@
                         // 计算鼠标在 3D 空间的位置
                         mouse.x = ((e.clientX - renderer.domElement.offsetLeft) / renderer.domElement.clientWidth) * 2 - 1;
                         mouse.y = -((e.clientY - renderer.domElement.offsetTop) / renderer.domElement.clientHeight) * 2 + 1;
-                        raycaster.setFromCamera(mouse, camera);
+                        rayCaster.setFromCamera(mouse, camera);
 
                         // 使用面向相机的平面计算交点
                         const camDir = camera.position.clone().sub(controls.target).normalize();
@@ -1530,7 +1530,7 @@
                         dropPlane.constant = -dropPlane.normal.dot(controls.target);
                         
                         const target = new THREE.Vector3();
-                        if (raycaster.ray.intersectPlane(dropPlane, target)) {
+                        if (rayCaster.ray.intersectPlane(dropPlane, target)) {
                             // 将部件移动到鼠标位置
                             target.x = Math.max(-8, Math.min(8, target.x));
                             target.y = Math.max(-1, Math.min(6, target.y));
@@ -1563,13 +1563,13 @@
                     resetGame();
                 }
                 if (e.key === 'Escape') {
-                    if (selectedMesh) {
-                        selectedMesh.traverse(child => {
+                    if (chosenMesh) {
+                        chosenMesh.traverse(child => {
                             if (child.isMesh) {
                                 child.material.emissive?.setHex(0x000000);
                             }
                         });
-                        selectedMesh = null;
+                        chosenMesh = null;
                         gameState.selectedPart = null;
                         document.querySelectorAll('.part-item').forEach(item => {
                             item.classList.remove('selected');
