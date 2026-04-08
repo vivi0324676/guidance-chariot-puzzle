@@ -468,8 +468,8 @@
                 color: 0xD2691E,
                 startPos: new THREE.Vector3(-6-0.3, 1.5, 0)
             },
-            trough: {
-                 targetPos: new THREE.Vector3(2.2, 2.62, 0),
+            shuicao: {
+                targetPos: new THREE.Vector3(2.2, 2.62, 0),
                 targetRot: new THREE.Vector3(0, 0, 0),
                 color: 0x4682B4,
                 startPos: new THREE.Vector3(-3, 4+1, 0)
@@ -642,7 +642,7 @@
         }
 
         // 创建水槽模型
-        function createTrough() {
+        function createshuicao() {
             const group = new THREE.Group();
             const mat = new THREE.MeshStandardMaterial({ color: 0x4682B4, roughness: 0.3, metalness: 0.3 });
             
@@ -682,7 +682,7 @@
             switch(type) {
                 case 'wheel': mesh = createWheel(); break;
                 case 'lever': mesh = createLever(); break;
-                case 'trough': mesh = createTrough(); break;
+                case 'shuicao': mesh = createshuicao(); break;
             }
 
             if (mesh) {
@@ -734,8 +734,8 @@
         }
 
         function getTroughOutletWorldPosition() {
-            const placedTrough = partMeshes.trough;
-            const sourceTrough = (placedTrough && placedTrough.userData.isPlaced) ? placedTrough : ghostMeshes.trough;
+            const placedTrough = partMeshes.shuicao;
+            const sourceTrough = (placedTrough && placedTrough.userData.isPlaced) ? placedTrough : ghostMeshes.shuicao;
 
             if (sourceTrough) {
                 sourceTrough.updateMatrixWorld(true);
@@ -743,24 +743,24 @@
             }
 
             // 在初始化早期（幽灵模型还未创建）使用配置值回退。
-            const cfg = partsConfig.trough;
+            const cfg = partsConfig.shuicao;
             const outletLocal = new THREE.Vector3(-0.88, 0.02, 0);
             outletLocal.applyEuler(new THREE.Euler(cfg.targetRot.x, cfg.targetRot.y, cfg.targetRot.z, 'XYZ'));
             return cfg.targetPos.clone().add(outletLocal);
         }
 
         function getTroughFlowDirectionWorld() {
-            const placedTrough = partMeshes.trough;
-            const sourceTrough = (placedTrough && placedTrough.userData.isPlaced) ? placedTrough : ghostMeshes.trough;
+            const placedshuicao = partMeshes.shuicao;
+            const sourceshuicao = (placedshuicao && placedshuicao.userData.isPlaced) ? placedshuicao : ghostMeshes.shuicao;
 
-            if (sourceTrough) {
-                sourceTrough.updateMatrixWorld(true);
+            if (sourceshuicao) {
+                sourceshuicao.updateMatrixWorld(true);
                 const q = new THREE.Quaternion();
-                sourceTrough.getWorldQuaternion(q);
+                sourceshuicao.getWorldQuaternion(q);
                 return new THREE.Vector3(-1, 0, 0).applyQuaternion(q).normalize();
             }
 
-            const cfg = partsConfig.trough;
+            const cfg = partsConfig.shuicao;
             return new THREE.Vector3(-1, 0, 0)
                 .applyEuler(new THREE.Euler(cfg.targetRot.x, cfg.targetRot.y, cfg.targetRot.z, 'XYZ'))
                 .normalize();
@@ -789,7 +789,7 @@
             scene.background = new THREE.Color(0xd4c4a8);
             scene.fog = new THREE.Fog(0xd4c4a8, 15, 40);
 
-            // 相机
+            // 视角
             camera = new THREE.PerspectiveCamera(
                 60,
                 window.innerWidth / window.innerHeight,
@@ -817,8 +817,8 @@
             controls.autoRotateSpeed = 2.0;
 
             // 光源
-            const ambientLight = new THREE.AmbientLight(0xffffff, 0.6);
-            scene.add(ambientLight);
+            const environmLight = new THREE.AmbientLight(0xffffff, 0.6);
+            scene.add(environmLight);
 
             const dirLight = new THREE.DirectionalLight(0xffffff, 1);
             dirLight.position.set(10, 15, 10);
@@ -855,7 +855,7 @@
                 new THREE.MeshStandardMaterial({ color: 0xff0000, emissive: 0x440000 })
             );
             debugCube.position.set(0, 0.3, 0);
-            debugCube.visible = false; // 默认隐藏，调试时可见
+            debugCube.visible = false; // 隐藏
             scene.add(debugCube);
 
             console.log('ThreeJS scene initialized. camera position', camera.position, 'target', controls.target);
@@ -868,7 +868,7 @@
 
             // 坐标轴辅助（调试用）
             const axesHelper = new THREE.AxesHelper(3);
-            axesHelper.visible = false; // 默认隐藏，调试时可见
+            axesHelper.visible = false; // 隐藏
             scene.add(axesHelper);
 
             // 射线
