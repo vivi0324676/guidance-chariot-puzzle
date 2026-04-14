@@ -468,7 +468,7 @@
                 color: 0xD2691E,
                 startPos: new THREE.Vector3(-6-0.3, 1.5, 0)
             },
-            shuicao: {
+            trough: {
                 targetPos: new THREE.Vector3(2.2, 2.62, 0),
                 targetRot: new THREE.Vector3(0, 0, 0),
                 color: 0x4682B4,
@@ -642,7 +642,7 @@
         }
 
         // 创建水槽模型
-        function createshuicao() {
+        function createTrough() {
             const group = new THREE.Group();
             const mat = new THREE.MeshStandardMaterial({ color: 0x4682B4, roughness: 0.3, metalness: 0.3 });
             
@@ -682,7 +682,7 @@
             switch(type) {
                 case 'wheel': mesh = createWheel(); break;
                 case 'lever': mesh = createLever(); break;
-                case 'shuicao': mesh = createshuicao(); break;
+                case 'trough': mesh = createTrough(); break;
             }
 
             if (mesh) {
@@ -734,8 +734,8 @@
         }
 
         function getTroughOutletWorldPosition() {
-            const placedTrough = partMeshes.shuicao;
-            const sourceTrough = (placedTrough && placedTrough.userData.isPlaced) ? placedTrough : ghostMeshes.shuicao;
+            const placedTrough = partMeshes.trough;
+            const sourceTrough = (placedTrough && placedTrough.userData.isPlaced) ? placedTrough : ghostMeshes.trough;
 
             if (sourceTrough) {
                 sourceTrough.updateMatrixWorld(true);
@@ -743,24 +743,24 @@
             }
 
             // 在初始化早期（幽灵模型还未创建）使用配置值回退。
-            const cfg = partsConfig.shuicao;
+            const cfg = partsConfig.trough;
             const outletLocal = new THREE.Vector3(-0.88, 0.02, 0);
             outletLocal.applyEuler(new THREE.Euler(cfg.targetRot.x, cfg.targetRot.y, cfg.targetRot.z, 'XYZ'));
             return cfg.targetPos.clone().add(outletLocal);
         }
 
         function getTroughFlowDirectionWorld() {
-            const placedshuicao = partMeshes.shuicao;
-            const sourceshuicao = (placedshuicao && placedshuicao.userData.isPlaced) ? placedshuicao : ghostMeshes.shuicao;
+            const placedTrough = partMeshes.trough;
+            const sourceTrough = (placedTrough && placedTrough.userData.isPlaced) ? placedTrough : ghostMeshes.trough;
 
-            if (sourceshuicao) {
-                sourceshuicao.updateMatrixWorld(true);
+            if (sourceTrough) {
+                sourceTrough.updateMatrixWorld(true);
                 const q = new THREE.Quaternion();
-                sourceshuicao.getWorldQuaternion(q);
+                sourceTrough.getWorldQuaternion(q);
                 return new THREE.Vector3(-1, 0, 0).applyQuaternion(q).normalize();
             }
 
-            const cfg = partsConfig.shuicao;
+            const cfg = partsConfig.trough;
             return new THREE.Vector3(-1, 0, 0)
                 .applyEuler(new THREE.Euler(cfg.targetRot.x, cfg.targetRot.y, cfg.targetRot.z, 'XYZ'))
                 .normalize();
